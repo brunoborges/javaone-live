@@ -10,7 +10,7 @@ object DemoMain extends RouteBuilderSupport {
 
   def main(args: Array[String]) {
     val main = new Main()
-    main.enableHangupSupport();
+//    main.enableHangupSupport();
     main.addRouteBuilder(new DemoRouteBuilder())
     main.run();
   }

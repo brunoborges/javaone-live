@@ -75,24 +75,17 @@ var appImages = {
 
 	_onclose : function(m) {
 		this._ws = null;
-	},
-
-	search : function(search) {
-		this._ws.send("search " + search);
-	},
-
-	sample : function() {
-		this._ws.send("sample");
 	}
 };
 
 var appStatistics = {
-	clearStatistics : function() {
+/*
+    clearStatistics : function() {
 		if (this._ws) {
 			this._ws.send("clear");
 		}
 	},
-
+*/
 	stop : function() {
 		this._ws.close();
 	},
@@ -179,14 +172,26 @@ function setupGallery() {
 	}
 }
 
+function loadSamples() {
+	ws_sample = new WebSocket("ws://" + window.document.location.host
+			+ "/javaone/sample");
+	ws_sample.onmessage = function(m) {
+		if (m.data) gallery(m.data);
+	}
+	ws_sample.onopen = function() {
+		ws_sample.send("foo");
+	}
+}
+
 var running = true;
 
 $(document).ready(function() {
 	if (!window.WebSocket) {
 		$('#pictures').text("ERROR: Your browser doesn't support websockets!");
 	} else {
-        appImages.start();
-        appStatistics.start();
+		appImages.start();
+		appStatistics.start();
+		loadSamples();
 	}
 
 	$("#pause").click(function() {
@@ -201,5 +206,5 @@ $(document).ready(function() {
 			$(this).text("Pause");
 			running = true;
 		}
-	})
+	});
 });

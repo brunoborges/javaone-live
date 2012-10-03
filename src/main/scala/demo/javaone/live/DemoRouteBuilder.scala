@@ -1,15 +1,15 @@
 package demo.javaone.live
 
-import org.apache.camel.Exchange
-import org.apache.camel.scala.dsl.builder.RouteBuilder
-import org.apache.camel.component.twitter.TwitterComponent
-import twitter4j.Status
-import org.apache.camel.processor.aggregate.UseLatestAggregationStrategy
 import org.apache.camel.model.dataformat.JsonDataFormat
 import org.apache.camel.model.dataformat.JsonLibrary
+import org.apache.camel.scala.dsl.builder.RouteBuilder
+import demo.javaone.live.util._
+import twitter4j.Status
+import org.apache.camel.component.websocket.WebsocketConstants
 
 class DemoRouteBuilder extends RouteBuilder with ConfigureComponents {
 
+  val lruImages = new FifoBlockingQueue[Tweet](12)
   val jsonFormat = new JsonDataFormat(JsonLibrary.Jackson)
   val UNIQUE_IMAGE = "UNIQUE_IMAGE"
 
@@ -18,8 +18,10 @@ class DemoRouteBuilder extends RouteBuilder with ConfigureComponents {
   "twitter://streaming/filter?type=event&keywords=" + Statistics.keywords ==> {
     process(StatisticsProcessor)
     when(_.in.asInstanceOf[Status].getMediaEntities() != null) {
-      setHeader(UNIQUE_IMAGE, _.in.asInstanceOf[Status].getMediaEntities()(0).getMediaURL().getFile())
       process(StatusToTweetConverter)
+      process(exchange ⇒ {
+        lruImages.offer(exchange.getIn().getBody().asInstanceOf[Tweet])
+      })
       marshal(jsonFormat)
       to("websocket:0.0.0.0:8080/javaone/images?sendToAll=true")
     }
@@ -29,6 +31,13 @@ class DemoRouteBuilder extends RouteBuilder with ConfigureComponents {
     setBody(Statistics)
     marshal(jsonFormat)
     to("websocket:0.0.0.0:8080/javaone/statistics?sendToAll=true")
+  }
+
+  "websocket:0.0.0.0:8080/javaone/sample" ==> {
+    split(lruImages) {
+    	marshal(jsonFormat)
+    	to("websocket:0.0.0.0:8080/javaone/sample")
+    }
   }
 
 }
